@@ -5,6 +5,7 @@ from database.db import verificar_login
 from views.interface import janela_principal
 from views.cadastro import abrir_cadastro
 
+
 def iniciar_login():
     def fazer_login():
         user = entry_usuario.get()
@@ -70,7 +71,7 @@ def iniciar_login():
 
 # Botão de cadastro
     botao_cadastro = ctk.CTkButton(
-        conteudo, height=35, text="Cadastrar", command=abrir_cadastro, width=250, corner_radius=20, fg_color="gray")
+        conteudo, height=35, text="Cadastrar", command=lambda: abrir_cadastro(root), width=250, corner_radius=20, fg_color="gray")
     botao_cadastro.grid(row=5, column=0, columnspan=2, pady=(0, 10))
 
     root.mainloop()

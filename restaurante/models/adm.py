@@ -1,8 +1,9 @@
 import sqlite3
 
+
 def salvar_usuario(usuario, senha):
     try:
-        conn = sqlite3.connect("restaurante/restaurante.db")  # Substitua pelo caminho real do seu banco
+        conn = sqlite3.connect("restaurante/restaurante.db")
         cursor = conn.cursor()
 
         # Verifica se o usuário já existe
@@ -12,7 +13,8 @@ def salvar_usuario(usuario, senha):
             return False
 
         # Insere novo usuário
-        cursor.execute("INSERT INTO adm (usuario, senha) VALUES (?, ?)", (usuario, senha))
+        cursor.execute(
+            "INSERT INTO adm (usuario, senha) VALUES (?, ?)", (usuario, senha))
         conn.commit()
         conn.close()
         return True

@@ -1,5 +1,6 @@
 from PIL import Image, ImageTk
 import customtkinter as ctk
+from tkinter import ttk
 from tkcalendar import DateEntry
 from datetime import datetime, timedelta, date
 from tkinter import messagebox
@@ -114,172 +115,288 @@ def abrir_nova_reserva(conteudo_frame):
 def abrir_edicao(conteudo_frame):
     limpar_conteudo(conteudo_frame)
 
-    # Frame central
     frame_interno = ctk.CTkFrame(conteudo_frame, corner_radius=10)
     frame_interno.place(relx=0.5, y=50, anchor="n")
 
     reservas = ctrl_res.get_reservas()
-    reserva_dict = {
-        f"Mesa {r[2]} - {r[1]} ({r[4]} {r[5]})": r[0] for r in reservas}
+    reserva_dict = {}
 
     ctk.CTkLabel(frame_interno, text="Selecione a Reserva").grid(
-        row=0, column=0, padx=10, pady=15)
-    lista = ctk.CTkComboBox(frame_interno, width=300, height=35,
-                            values=list(reserva_dict.keys()))
-    lista.grid(row=0, column=1, padx=10, pady=30)
+        row=0, column=0, columnspan=4, padx=10, pady=(10, 5))
 
+    # Frame CTK com a Treeview
+    tree_frame = ctk.CTkFrame(frame_interno, fg_color="transparent")
+    tree_frame.grid(row=1, column=0, columnspan=4, padx=10, pady=5)
+
+    style = ttk.Style()
+    style.theme_use("default")
+
+    style.configure("Treeview",
+                    background="#2b2b2b",
+                    foreground="white",
+                    rowheight=30,
+                    fieldbackground="#2b2b2b",
+                    font=('Arial', 12))
+
+    style.configure("Treeview.Heading",
+                    background="#1f1f1f",
+                    foreground="white",
+                    font=('Arial', 13, 'bold'))
+
+    style.map('Treeview', background=[('selected', '#3a7ff6')])
+
+    # Scrollbar
+    tree_scroll = ttk.Scrollbar(tree_frame)
+    tree_scroll.pack(side="right", fill="y")
+
+    tree = ttk.Treeview(tree_frame, columns=("nome", "mesa", "data", "hora"),
+                        show="headings", height=5, yscrollcommand=tree_scroll.set)
+    tree.heading("nome", text="Cliente")
+    tree.heading("mesa", text="Mesa")
+    tree.heading("data", text="Data")
+    tree.heading("hora", text="Hora")
+    tree.column("nome", width=150)
+    tree.column("mesa", width=80)
+    tree.column("data", width=100)
+    tree.column("hora", width=100)
+    tree.pack()
+
+    tree_scroll.config(command=tree.yview)
+
+    for r in reservas:
+        tree.insert("", "end", values=(r[1], f"Mesa {r[2]}", r[4], r[5]))
+        reserva_dict[(r[1], f"Mesa {r[2]}", r[4], r[5])] = r[0]
+
+    # Campos de edição
     ctk.CTkLabel(frame_interno, text="Data").grid(
-        row=0, column=2, padx=10, pady=30)
+        row=2, column=0, padx=10, pady=10)
     data_entry = DateEntry(frame_interno, width=30, height=35, date_pattern="dd-mm-yyyy",
                            locale="pt_BR", mindate=date.today())
-    data_entry.grid(row=0, column=3, padx=10, pady=30)
+    data_entry.grid(row=2, column=1, padx=10, pady=10)
 
     ctk.CTkLabel(frame_interno, text="Horário").grid(
-        row=1, column=0, padx=10, pady=30)
+        row=2, column=2, padx=10, pady=10)
     horario_combo = ctk.CTkComboBox(
         frame_interno, width=200, height=35, values=gerar_horarios())
-    horario_combo.grid(row=1, column=1, padx=10, pady=30)
+    horario_combo.grid(row=2, column=3, padx=10, pady=10)
 
     ctk.CTkLabel(frame_interno, text="Mesa").grid(
-        row=1, column=2, padx=10, pady=30)
+        row=3, column=0, padx=10, pady=10)
     mesa_combo = ctk.CTkComboBox(
         frame_interno, width=200, height=35, values=ctrl_res.get_mesas_para_combobox())
-    mesa_combo.grid(row=1, column=3, padx=10, pady=30)
+    mesa_combo.grid(row=3, column=1, padx=10, pady=10)
 
-    def preencher_campos_reserva():
-        selecionado = lista.get()
-        reserva_id = reserva_dict.get(selecionado)
-        if reserva_id:
-            for r in reservas:
-                if r[0] == reserva_id:
-                    data_entry.set_date(r[4])
-                    horario_combo.set(r[5])
-                    mesa_combo.set(f"Mesa {r[2]}")
-                    break
+    def preencher_campos_reserva(event):
+        selecionado = tree.focus()
+        if not selecionado:
+            return
+        valores = tree.item(selecionado)["values"]
+        if len(valores) != 4:
+            return
+        nome, mesa, data, hora = valores
+        data_entry.set_date(data)
+        horario_combo.set(hora)
+        mesa_combo.set(mesa)
 
-    lista.configure(command=lambda _: preencher_campos_reserva())
+    tree.bind("<<TreeviewSelect>>", preencher_campos_reserva)
 
     def atualizar():
-        item = lista.get()
-        if item not in reserva_dict:
+        selecionado = tree.focus()
+        if not selecionado:
             messagebox.showwarning(
-                "Seleção inválida", "Por favor, selecione uma reserva válida.")
+                "Seleção inválida", "Selecione uma reserva.")
             return
 
-        reserva_id = reserva_dict[item]
-        data = data_entry.get_date().strftime("%d-%m-%Y")
-        mesa_nome = mesa_combo.get()
-        if ctrl_res.editar_reserva(
-                reserva_id, data, horario_combo.get(), mesa_nome):
+        valores = tree.item(selecionado)["values"]
+        if len(valores) != 4:
+            return
+
+        nome, mesa_antiga, data_antiga, hora_antiga = valores
+        reserva_id = reserva_dict.get(
+            (nome, mesa_antiga, data_antiga, hora_antiga))
+        if not reserva_id:
+            messagebox.showerror("Erro", "Reserva não encontrada.")
+            return
+
+        nova_data = data_entry.get_date().strftime("%d-%m-%Y")
+        novo_horario = horario_combo.get()
+        nova_mesa = mesa_combo.get()
+
+        if ctrl_res.editar_reserva(reserva_id, nova_data, novo_horario, nova_mesa):
             messagebox.showinfo("Atualização", "Reserva atualizada!")
             abrir_edicao(conteudo_frame)
         else:
-            messagebox.showerror("Erro", "Ediçao não realizada!")
+            messagebox.showerror("Erro", "Edição não realizada!")
 
     ctk.CTkButton(frame_interno, text="Atualizar", width=200, height=35,
-                  command=atualizar).grid(row=2, column=0, padx=10, pady=30)
+                  command=atualizar).grid(row=4, column=0, columnspan=4, pady=20)
 
 
 def abrir_cancelamento(conteudo_frame):
+
     limpar_conteudo(conteudo_frame)
 
     # Frame central
     frame_interno = ctk.CTkFrame(conteudo_frame, corner_radius=10)
     frame_interno.place(relx=0.5, y=50, anchor="n")
 
-    reservas = ctrl_res.get_reservas()
-    reserva_dict = {
-        f"Mesa {r[2]} - {r[1]} ({r[4]} {r[5]})": r[0] for r in reservas}
+    # Treeview
+    tree_frame = ctk.CTkFrame(frame_interno)
+    tree_frame.grid(row=0, column=0, padx=20, pady=20)
 
-    lista = ctk.CTkComboBox(frame_interno, width=350,
-                            values=list(reserva_dict.keys()))
-    lista.grid(row=0, column=0, padx=35, pady=30)
+    tree = ttk.Treeview(tree_frame, columns=(
+        "nome", "mesa", "data", "hora"), show="headings", height=8)
+    tree.heading("nome", text="Nome")
+    tree.heading("mesa", text="Mesa")
+    tree.heading("data", text="Data")
+    tree.heading("hora", text="Hora")
+    tree.column("nome", width=150)
+    tree.column("mesa", width=80)
+    tree.column("data", width=100)
+    tree.column("hora", width=100)
+    tree.pack()
+
+    # Estilo escuro
+    style = ttk.Style()
+    style.theme_use("default")
+    style.configure("Treeview",
+                    background="#2b2b2b",
+                    foreground="white",
+                    rowheight=30,
+                    fieldbackground="#2b2b2b",
+                    font=('Arial', 12))
+    style.configure("Treeview.Heading",
+                    background="#1f1f1f",
+                    foreground="white",
+                    font=('Arial', 13, 'bold'))
+    style.map('Treeview', background=[('selected', '#3a7ff6')])
+
+    # Dicionário de reservas
+    reservas = ctrl_res.get_reservas()
+    reserva_dict = {}
+    for r in reservas:
+        reserva_dict[str(r[0])] = r
+        tree.insert("", "end", iid=str(r[0]), values=(
+            r[1], f"Mesa {r[2]}", r[4], r[5]))
 
     def cancelar():
-        item = lista.get()
-        if item:
-            reserva_id = reserva_dict[item]
-            ctrl_res.excluir_reserva(reserva_id)
-            messagebox.showinfo("Cancelamento", "Reserva cancelada!")
-            abrir_cancelamento(conteudo_frame)
+        item = tree.selection()
+        if not item:
+            messagebox.showwarning(
+                "Atenção", "Selecione uma reserva para cancelar.")
+            return
+
+        reserva_id = int(item[0])
+        ctrl_res.excluir_reserva(reserva_id)
+        messagebox.showinfo("Cancelamento", "Reserva cancelada!")
+        abrir_cancelamento(conteudo_frame)
 
     ctk.CTkButton(frame_interno, width=200, height=35, text="Cancelar Reserva",
-                  command=cancelar).grid(row=1, column=0, pady=20, padx=35)
+                  command=cancelar).grid(row=1, column=0, pady=20)
 
 
 def abrir_gerenciar_clientes(conteudo_frame):
+
     limpar_conteudo(conteudo_frame)
 
-    # Frame central
     frame_interno = ctk.CTkFrame(conteudo_frame, corner_radius=10)
     frame_interno.place(relx=0.5, y=50, anchor="n")
 
     clientes = ctrl_cli.get_clientes()
-    cliente_dict = {f"{c[1]} | Tel: {c[2]} | Email: {c[3]}": c[0]
-                    for c in clientes}
+    cliente_dict = {str(c[0]): c for c in clientes}
 
-    ctk.CTkLabel(frame_interno, text="Selecione um cliente").grid(
-        row=0, column=0)
-    lista = ctk.CTkComboBox(frame_interno, width=400,
-                            height=35, values=list(cliente_dict.keys()))
-    lista.grid(row=0, column=1, padx=30, pady=30)
+    # Treeview Frame
+    tree_frame = ctk.CTkFrame(frame_interno)
+    tree_frame.grid(row=0, column=0, columnspan=5, pady=20)
 
+    tree = ttk.Treeview(tree_frame, columns=(
+        "nome", "telefone", "email"), show="headings", height=8)
+    tree.heading("nome", text="Nome")
+    tree.heading("telefone", text="Telefone")
+    tree.heading("email", text="Email")
+    tree.column("nome", width=200)
+    tree.column("telefone", width=200)
+    tree.column("email", width=200)
+    tree.pack()
+
+    # Estilo escuro para o Treeview
+    style = ttk.Style()
+    style.theme_use("default")
+    style.configure("Treeview",
+                    background="#2b2b2b",
+                    foreground="white",
+                    rowheight=30,
+                    fieldbackground="#2b2b2b",
+                    font=('Arial', 12))
+    style.configure("Treeview.Heading",
+                    background="#1f1f1f",
+                    foreground="white",
+                    font=('Arial', 13, 'bold'))
+    style.map('Treeview', background=[('selected', '#3a7ff6')])
+
+    # Inserir dados na Treeview
+    for c in clientes:
+        tree.insert("", "end", iid=str(c[0]), values=(c[1], c[2], c[3]))
+
+    # Campos de edição
     ctk.CTkLabel(frame_interno, text="Nome").grid(
-        row=1, column=0, pady=30, padx=30)
+        row=1, column=0, padx=20, pady=10)
     nome_entry = ctk.CTkEntry(frame_interno, width=200, height=35)
     nome_entry.grid(row=1, column=1)
 
-    ctk.CTkLabel(frame_interno, text="Telefone").grid(row=1, column=3)
+    ctk.CTkLabel(frame_interno, text="Telefone").grid(row=1, column=2, padx=20)
     telefone_entry = ctk.CTkEntry(frame_interno, width=200, height=35)
-    telefone_entry.grid(row=1, column=4, padx=30, pady=30)
+    telefone_entry.grid(row=1, column=3)
     telefone_entry.bind(
         "<KeyRelease>", lambda event: formatar_telefone(telefone_entry))
 
-    ctk.CTkLabel(frame_interno, text="E-mail").grid(row=2, column=0)
-    email_entry = ctk.CTkEntry(
-        frame_interno, width=200, height=35)
-    email_entry.grid(row=2, column=1, padx=30, pady=30)
+    ctk.CTkLabel(frame_interno, text="E-mail").grid(row=2, column=0, padx=20)
+    email_entry = ctk.CTkEntry(frame_interno, width=200, height=35)
+    email_entry.grid(row=2, column=1, padx=20, pady=10)
 
-    def preencher_campos_cliente():
-        selecionado = lista.get()
-        cliente_id = cliente_dict.get(selecionado)
-        if cliente_id:
-            for c in clientes:
-                if c[0] == cliente_id:
-                    nome_entry.delete(0, ctk.END)
-                    nome_entry.insert(0, c[1])
-                    telefone_entry.delete(0, ctk.END)
-                    telefone_entry.insert(0, c[2])
-                    email_entry.delete(0, ctk.END)
-                    email_entry.insert(0, c[3])
-                    break
+    cliente_selecionado_id = [None]
 
-    lista.configure(command=lambda _: preencher_campos_cliente())
+    def on_select(event):
+        selecionado = tree.selection()
+        if selecionado:
+            cid = selecionado[0]
+            cliente_selecionado_id[0] = int(cid)
+            c = cliente_dict[cid]
+            nome_entry.delete(0, ctk.END)
+            nome_entry.insert(0, c[1])
+            telefone_entry.delete(0, ctk.END)
+            telefone_entry.insert(0, c[2])
+            email_entry.delete(0, ctk.END)
+            email_entry.insert(0, c[3])
+
+    tree.bind("<<TreeviewSelect>>", on_select)
 
     def atualizar():
-        selecionado = lista.get()
-        if selecionado:
-            cliente_id = cliente_dict[selecionado]
-            ctrl_cli.editar_cliente(cliente_id, nome_entry.get(
-            ), telefone_entry.get(), email_entry.get())
-            messagebox.showinfo(
-                "Atualizado", "Cliente atualizado com sucesso.")
-            abrir_gerenciar_clientes(conteudo_frame)
+        cid = cliente_selecionado_id[0]
+        if cid is None:
+            messagebox.showwarning(
+                "Aviso", "Selecione um cliente para atualizar.")
+            return
+        ctrl_cli.editar_cliente(cid, nome_entry.get(),
+                                telefone_entry.get(), email_entry.get())
+        messagebox.showinfo("Atualizado", "Cliente atualizado com sucesso.")
+        abrir_gerenciar_clientes(conteudo_frame)
 
     def excluir():
-        selecionado = lista.get()
-        if selecionado:
-            cliente_id = cliente_dict[selecionado]
-            if messagebox.askyesno("Confirmação", "Deseja realmente excluir este cliente?"):
-                ctrl_cli.remover_cliente(cliente_id)
-                messagebox.showinfo(
-                    "Excluído", "Cliente excluído com sucesso.")
-                abrir_gerenciar_clientes(conteudo_frame)
+        cid = cliente_selecionado_id[0]
+        if cid is None:
+            messagebox.showwarning(
+                "Aviso", "Selecione um cliente para excluir.")
+            return
+        if messagebox.askyesno("Confirmação", "Deseja realmente excluir este cliente?"):
+            ctrl_cli.remover_cliente(cid)
+            messagebox.showinfo("Excluído", "Cliente excluído com sucesso.")
+            abrir_gerenciar_clientes(conteudo_frame)
 
     ctk.CTkButton(frame_interno, width=200, height=35, text="Atualizar Cliente",
                   command=atualizar).grid(row=3, column=0, padx=30, pady=10)
     ctk.CTkButton(frame_interno, width=200, height=35, text="Excluir Cliente",
-                  command=excluir).grid(row=4, column=0, padx=30, pady=10)
+                  command=excluir).grid(row=3, column=1, padx=30, pady=10)
 
 
 def abrir_reservas(conteudo_frame):
@@ -302,7 +419,7 @@ def janela_principal():
     root.geometry("900x450")
 
     # Layout principal: 2 colunas (menu à esquerda, conteúdo à direita)
-    root.grid_columnconfigure(1, weight=1)  # Conteúdo cresce
+    root.grid_columnconfigure(1, weight=1)
     root.grid_rowconfigure(0, weight=1)
 
     menu_lateral = ctk.CTkFrame(
