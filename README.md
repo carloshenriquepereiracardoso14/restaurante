@@ -61,11 +61,7 @@ restaurante-att_carlos/
 
 ## 🔐 Login de Administrador
 
-Ao iniciar o sistema, será necessário efetuar login como administrador. 
-
-para acessar use esse acesso:
-
-   usuário: adm senha: 123
+Ao iniciar o sistema, será necessário efetuar login como administrador, acesse a opção de cadastro e preencha as informações necessárias. Pronto faça login e use o programa. 
 
 ## 📌 Observações
 

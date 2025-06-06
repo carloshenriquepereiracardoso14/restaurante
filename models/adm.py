@@ -4,7 +4,7 @@ import sqlite3
 
 
 def conectar():
-    return sqlite3.connect('restaurante/restaurante.db')
+    return sqlite3.connect('restaurante.db')
 
 # Função que salva um novo usuário administrador no banco, verificando se já existe
 
