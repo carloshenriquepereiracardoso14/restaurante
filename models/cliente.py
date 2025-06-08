@@ -41,6 +41,7 @@ def atualizar_cliente(cliente_id, novo_nome, novo_telefone, novo_email):
 def excluir_cliente(cliente_id):
     con = banco.conectar()
     cursor = con.cursor()
+    cursor.execute("DELETE FROM reservas WHERE cliente_id = ?", (cliente_id,))
     cursor.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
     con.commit()
     con.close()

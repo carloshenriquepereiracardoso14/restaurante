@@ -38,7 +38,7 @@ def criar_tabelas():
             mesa_id INTEGER,
             data TEXT,
             horario TEXT,
-            FOREIGN KEY(cliente_id) REFERENCES clientes(id),
+            FOREIGN KEY(cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
             FOREIGN KEY(mesa_id) REFERENCES mesas(id))
     ''')
 
